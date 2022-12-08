@@ -215,6 +215,8 @@ def calculate_ball_target(current_centre_x, current_centre_y, x_velocity, y_velo
     return_landing_spots = {}
 
     # Find all possible reflections and record their landing positions, board hitting positions, and x-velocity
+    # This portion of the code is taken directly from the pong game engine as it appears to be
+    #   O(1) time complexity for each angle
     for theta in angles_of_impact:
         return_velocity = [math.cos(theta) * approaching_x_velocity - math.sin(theta) * approaching_y_velocity,
                            math.sin(theta) * approaching_x_velocity + math.cos(theta) * approaching_y_velocity]
