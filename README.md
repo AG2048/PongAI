@@ -1,6 +1,8 @@
 # PongAI
 By Andy Gong
 
+## Descriptions
+
 University of Toronto 2022 ESC180 Pong Contest Champion :>
 
 <img width="437" alt="image" src="https://user-images.githubusercontent.com/45613281/206371569-23c39b32-82cc-46d0-a93b-cdc5ecf9d087.png">
@@ -17,3 +19,18 @@ University of Toronto 2022 ESC180 Pong Contest Champion :>
 2. Calculate how the ball might be returned before the hit, and eliminate any that will force an opponent victory.
 
 Link to pong demo: https://www.youtube.com/watch?v=FITEjcnJWJ8
+
+## How to Run the Code
+
+You will need to install `pygame`
+
+If you don't have it installed, run `pip install pygame` in terminal or run `pip install -r requirements.txt`
+
+- `PongAIvAI.py` is the game engine that calls pong_ai function from the AI (or takes in keyboard input). 
+  - To change bots, simply change `paddles[0].move_getter` or `paddles[1].move_getter` on line 390 and 391 to the function of your choice that returns "up" or "down" given the same input to pong_ai.
+  - To speed up the game, increase the `clock_rate` on line 372.
+  - To change number of points to win, change `score_to_win` on line 374.
+  - To only output game result and not display game (which runs the game faster), replace the `1` with `0` on line 393 and 402.
+- `pong_ai.py` includes function `pong_ai()` which is my pong AI. Other functions in the file are helper functions for `pong_ai()`.
+- `chaser_ai.py` includes its own `pong_ai()` which is the starter AI that only move up or down based on the ball's current location.
+- `requirements.txt` includes the packages required to run the game. In this case, it's only `pygame`.
