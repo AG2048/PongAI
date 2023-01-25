@@ -1,4 +1,4 @@
-# PongAI
+# [PongAI](https://github.com/AG2048/PongAI)
 By Andy Gong
 
 ## Descriptions
