@@ -224,7 +224,7 @@ def calculate_ball_target(current_centre_x, current_centre_y, x_velocity, y_velo
     angles_of_impact = {}
     paddle_angle_sign = -1 if current_paddle_hit_x_pos < opponent_paddle_hit_x else 1
     paddle_facing = 1 if current_paddle_hit_x_pos < opponent_paddle_hit_x else 0
-    for possible_paddle_centre_y in range(int(min_centre_y_reachable) - ball_diameter/2, int(max_centre_y_reachable) + ball_diameter/2):  # Adding ball_diameter/2 to ensure the ball is hit TODO: check if this is necessary
+    for possible_paddle_centre_y in range(int(min_centre_y_reachable), int(max_centre_y_reachable) + 2):  # Adding ball_diameter/2 to ensure the ball is hit TODO: check if this is necessary
         angles_of_impact[paddle_angle_sign * max(-0.5, min(0.5, (y_position_of_ball_hitting_current_paddle - possible_paddle_centre_y) / paddle_height)) * 45 * math.pi / 180] = possible_paddle_centre_y
 
     # This dictionary will be returned with the function
