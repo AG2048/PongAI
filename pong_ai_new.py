@@ -67,7 +67,7 @@ def pong_ai(paddle_frect, other_paddle_frect, ball_frect, table_size):
                 guarantee_win_distance = opponent_gap_to_ball
                 guarantee_win_hitting_position = centre_hitting_pos
             # A debug message to show the guarantee win position
-            print("Guarantee win: \topp_curr_y", enemy_paddle_centre_y, "\tball lands: ", return_y_pos, "\tball x-vel: ", return_x_velocity, "\tball hits us at: ", centre_hitting_pos, "\tWe are at: ", paddle_centre_y)
+            # print("Guarantee win: \topp_curr_y", enemy_paddle_centre_y, "\tball lands: ", return_y_pos, "\tball x-vel: ", return_x_velocity, "\tball hits us at: ", centre_hitting_pos, "\tWe are at: ", paddle_centre_y)
 
         if guarantee_win_hitting_position != -1:
             if paddle_centre_y < guarantee_win_hitting_position:
@@ -112,7 +112,7 @@ def pong_ai(paddle_frect, other_paddle_frect, ball_frect, table_size):
                 best_hitting_position_for_paddle_centre = centre_hitting_pos
 
         if (best_return_score == -1):
-            print("No best return score found") 
+            # print("No best return score found") 
             # Using old algorithm to find the best return score
             for (return_y_pos, return_x_velocity, return_y_velocity), centre_hitting_pos in ball_return_landing_spots_and_speed.items():
                 if enemy_paddle_min_y <= return_y_pos <= enemy_paddle_max_y:
