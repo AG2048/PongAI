@@ -78,7 +78,7 @@ class Paddle:
 
     def move(self, enemy_frect, ball_frect, table_size):
         direction = self.move_getter(self.frect.copy(), enemy_frect.copy(), ball_frect.copy(), tuple(table_size))
-        #direction = timeout(self.move_getter, (self.frect.copy(), enemy_frect.copy(), ball_frect.copy(), tuple(table_size)), {}, self.timeout)
+        # direction = timeout(self.move_getter, (self.frect.copy(), enemy_frect.copy(), ball_frect.copy(), tuple(table_size)), {}, self.timeout)
         if direction == "up":
             self.frect.move_ip(0, -self.speed)
         elif direction == "down":
@@ -355,7 +355,7 @@ def game_loop(screen, paddles, ball, table_size, clock_rate, turn_wait_rate, sco
         clock.tick(30)
 
     print(score)
-    # return
+    return score
 
 def init_game():
     table_size = (440, 280)
@@ -370,7 +370,7 @@ def init_game():
     init_speed_mag = 2
     timeout = 0.0003
     clock_rate = 80
-    turn_wait_rate = 3
+    turn_wait_rate = 1
     score_to_win = 5
 
 
@@ -386,20 +386,57 @@ def init_game():
     
     import chaser_ai
     import pong_ai
+    import pong_ai_new
     
-    paddles[0].move_getter = chaser_ai.pong_ai
+    auto_testing = True
+
+    paddles[0].move_getter = pong_ai_new.pong_ai
     paddles[1].move_getter = pong_ai.pong_ai  # directions_from_input  # chaser_ai.pong_ai
+
+    if auto_testing:
+        clock_rate = 0
+        turn_wait_rate = 0
+        score_to_win = 1
+
+        scores = {}
     
-    game_loop(screen, paddles, ball, table_size, clock_rate, turn_wait_rate, score_to_win, 1)
-    ball = Ball(table_size, ball_size, paddle_bounce, wall_bounce, dust_error, init_speed_mag)
-    screen.blit(pygame.font.Font(None, 32).render(str('SWITCHING SIDES'), True, white), [int(0.6*table_size[0])-8, 0])
-    
-    pygame.display.flip()
-    clock.tick(4)
-    
-    paddles[0].move_getter, paddles[1].move_getter = paddles[1].move_getter, paddles[0].move_getter
-    
-    game_loop(screen, paddles, ball, table_size, clock_rate, turn_wait_rate, score_to_win, 1)
+        scores['0'] = 0
+        scores['1'] = 0
+
+        for i in range(1000):
+            game_score = game_loop(screen, paddles, ball, table_size, clock_rate, turn_wait_rate, score_to_win, 0)
+            scores['0'] += game_score[0]
+            scores['1'] += game_score[1]
+            ball = Ball(table_size, ball_size, paddle_bounce, wall_bounce, dust_error, init_speed_mag)
+            
+            pygame.display.flip()
+            clock.tick()
+            
+            paddles[0].move_getter, paddles[1].move_getter = paddles[1].move_getter, paddles[0].move_getter
+            
+            game_score = game_loop(screen, paddles, ball, table_size, clock_rate, turn_wait_rate, score_to_win, 0)
+            scores['1'] += game_score[0]
+            scores['0'] += game_score[1]
+            ball = Ball(table_size, ball_size, paddle_bounce, wall_bounce, dust_error, init_speed_mag)
+
+            pygame.display.flip()
+            clock.tick()
+
+            paddles[0].move_getter, paddles[1].move_getter = paddles[1].move_getter, paddles[0].move_getter
+
+            print(scores)
+    else: 
+        
+        game_loop(screen, paddles, ball, table_size, clock_rate, turn_wait_rate, score_to_win, 1)
+        ball = Ball(table_size, ball_size, paddle_bounce, wall_bounce, dust_error, init_speed_mag)
+        screen.blit(pygame.font.Font(None, 32).render(str('SWITCHING SIDES'), True, white), [int(0.6*table_size[0])-8, 0])
+        
+        pygame.display.flip()
+        clock.tick(4)
+        
+        paddles[0].move_getter, paddles[1].move_getter = paddles[1].move_getter, paddles[0].move_getter
+        
+        game_loop(screen, paddles, ball, table_size, clock_rate, turn_wait_rate, score_to_win, 1)
     
     
     
