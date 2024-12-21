@@ -43,7 +43,7 @@ def pong_ai(paddle_frect, other_paddle_frect, ball_frect, table_size):
 
     # if ball approaching, note here approaching originally used paddle_hit_x_pos, now uses paddle_nearest_wall
     # This was done because sometimes the paddle thought the ball passed the paddle and decided to go back to middle...
-    if ball_velocity[0] * (nearest_wall_x - ball_centre[0]) >= 0:
+    if ball_velocity[0] * (nearest_wall_x - ball_centre[0]) > 0:
         # If the ball is approaching, find how the ball will contact paddle (y-coordinate and velocity)
         ball_return_landing_spots_and_speed = calculate_ball_target(ball_centre[0], ball_centre[1],
                           ball_velocity[0], ball_velocity[1],
@@ -51,13 +51,14 @@ def pong_ai(paddle_frect, other_paddle_frect, ball_frect, table_size):
                           paddle_centre_y,
                           paddle_frect.size[1],
                           table_size[1], ball_diameter)
+        
+        frame_until_impact_to_me = (paddle_hit_x_pos - ball_centre[0]) / ball_velocity[0] if ball_velocity[0] != 0 else 10000
 
         # Given the landing position and velocity, find the way of hitting that ensures best chance of winning
         # Find choices that guarantees the paddle cannot hit the ball back
         guarantee_win_distance = 0
         guarantee_win_hitting_position = -1
-        for (return_y_pos, return_x_velocity), centre_hitting_pos in ball_return_landing_spots_and_speed.items():
-            frame_until_impact_to_me = (paddle_hit_x_pos - ball_centre[0]) / ball_velocity[0] if ball_velocity[0] != 0 else 10000
+        for (return_y_pos, return_x_velocity, _), centre_hitting_pos in ball_return_landing_spots_and_speed.items():
             frame_until_impact_opponent = frame_until_impact_to_me + (enemy_paddle_hit_x_pos - paddle_hit_x_pos) / return_x_velocity if return_x_velocity != 0 else 10000
             opponent_gap_to_ball = paddle_hit_ball_min_distance(frame_until_impact_opponent, return_y_pos, enemy_paddle_centre_y, other_paddle_frect.size[1], table_size[1], ball_diameter)
             if opponent_gap_to_ball == 0:
@@ -71,19 +72,37 @@ def pong_ai(paddle_frect, other_paddle_frect, ball_frect, table_size):
         if guarantee_win_hitting_position != -1:
             if paddle_centre_y < guarantee_win_hitting_position:
                 return "down"
-            return "up"
+            if paddle_centre_y > guarantee_win_hitting_position:
+                return "up"
+            return
         
         # There is no guarantee win, find spots where the opponent cannot guarantee their win (for each hit back, calculate if opponent can hit the ball to a location we cannot reach in time)
-
-        # TODO: add checks for all possible return landing spots, choose the one that has the highest gap between the ball's y and opponent's paddle's y
-        # TODO: essentially create a check for the ball's return x velocity and see how far the opponent paddle can reach given this x velocity
-        # TODO: if all possible return x velocity does allow the opponent paddle to reach the ball, choose the target that makes the opponent paddle "forced" to return ball to a favourable position for us
-        # TODO: Favourable position = where we won't lose, then it's better if we can force a win. 
-        # TODO: It's even better if we can force the opponent to return the ball to a position that WE guarantee a victory
-        # TODO: If no victory return spot possible, choose the one where the opponent return spot has a very low spread / low x velocity
         best_return_score = -1
         best_hitting_position_for_paddle_centre = -1
-        for (return_y_pos, return_x_velocity), centre_hitting_pos in ball_return_landing_spots_and_speed.items():
+        for (return_y_pos, return_x_velocity, return_y_velocity), centre_hitting_pos in ball_return_landing_spots_and_speed.items():
+            possible_spots_and_speed_for_ball_coming_back = calculate_ball_target(return_y_pos, enemy_paddle_centre_y, return_x_velocity, return_y_velocity, enemy_paddle_hit_x_pos, paddle_hit_x_pos, enemy_paddle_centre_y, paddle_frect.size[1], table_size[1], ball_diameter, frame_until_impact_to_me)
+            
+            opponent_will_win = False
+
+            # Check possible spots the opponent can return the ball to if we hit it this way. Opponent guarantees win if they can hit the ball to a spot we cannot reach in time
+            for (opponent_return_y_pos, opponent_return_x_velocity, _), _ in possible_spots_and_speed_for_ball_coming_back.items():
+                # Frame to reach me is: ball reach me first + time to hit opponent + time for opponent to hit back
+                frames_until_ball_comes_back_to_me = frame_until_impact_to_me + ((enemy_paddle_hit_x_pos - paddle_hit_x_pos) / return_x_velocity if return_x_velocity != 0 else 10000) + ((paddle_hit_x_pos - enemy_paddle_hit_x_pos) / opponent_return_x_velocity if opponent_return_x_velocity != 0 else 10000)
+                my_gap_to_ball = paddle_hit_ball_min_distance(frames_until_ball_comes_back_to_me, opponent_return_y_pos, paddle_centre_y, paddle_frect.size[1], table_size[1], ball_diameter)
+                if my_gap_to_ball > 0:
+                    opponent_will_win = True
+                    break
+
+            if opponent_will_win:
+                continue
+
+            # TODO: Also check if there are any spots where all possible returns will give US a guaranteed win 
+            # TODO: (or the most likely for us winning, such as winning return spots are all close to us... almost all returns are wins...)
+
+            # TODO: rank the possible return spots by how likely opponent will return the ball to a spot we can easily reach (maybe take weighted average of all possible return spots by velocity and distance)
+            # TODO: I think a key improvement is to not OVER-WEIGH cases where multiple paths go to same spot with same velocity. 
+            # TODO: weigh by each destination square and MAX velocity to reach that square. Sum/Weigh by SQUARE and not ball trajectory
+            
             if enemy_paddle_min_y <= return_y_pos <= enemy_paddle_max_y:
                 return_y_dist = 0
             else:
@@ -92,9 +111,30 @@ def pong_ai(paddle_frect, other_paddle_frect, ball_frect, table_size):
                 best_return_score = abs(return_y_dist * return_x_velocity)
                 best_hitting_position_for_paddle_centre = centre_hitting_pos
 
+        if (best_return_score == -1):
+            print("No best return score found") 
+            # Using old algorithm to find the best return score
+            for (return_y_pos, return_x_velocity, return_y_velocity), centre_hitting_pos in ball_return_landing_spots_and_speed.items():
+                if enemy_paddle_min_y <= return_y_pos <= enemy_paddle_max_y:
+                    return_y_dist = 0
+                else:
+                    return_y_dist = min(abs(return_y_pos-enemy_paddle_max_y), abs(return_y_pos-enemy_paddle_min_y))
+                if best_return_score < abs(return_y_dist * return_x_velocity):
+                    best_return_score = abs(return_y_dist * return_x_velocity)
+                    best_hitting_position_for_paddle_centre = centre_hitting_pos
+                    
+        # TODO: add checks for all possible return landing spots, choose the one that has the highest gap between the ball's y and opponent's paddle's y
+        # TODO: essentially create a check for the ball's return x velocity and see how far the opponent paddle can reach given this x velocity
+        # TODO: if all possible return x velocity does allow the opponent paddle to reach the ball, choose the target that makes the opponent paddle "forced" to return ball to a favourable position for us
+        # TODO: Favourable position = where we won't lose, then it's better if we can force a win. 
+        # TODO: It's even better if we can force the opponent to return the ball to a position that WE guarantee a victory
+        # TODO: If no victory return spot possible, choose the one where the opponent return spot has a very low spread / low x velocity
+
         if paddle_centre_y < best_hitting_position_for_paddle_centre:
             return "down"
-        return "up"
+        if paddle_centre_y > best_hitting_position_for_paddle_centre:
+            return "up"
+        return
 
     # ball is leaving
     else:
@@ -105,9 +145,11 @@ def pong_ai(paddle_frect, other_paddle_frect, ball_frect, table_size):
                                                                     enemy_paddle_centre_y,
                                                                     other_paddle_frect.size[1],
                                                                     table_size[1], ball_diameter)
+        # TODO: I think a key improvement is to not OVER-WEIGH cases where multiple paths go to same spot with same velocity. 
+        # TODO: weigh by each destination square and MAX velocity to reach that square. Sum/Weigh by SQUARE and not ball trajectory
         sum_x_velocity = 0
         sum_velocity_and_position_product = 0
-        for (return_y_pos, return_x_velocity), centre_hitting_pos in ball_return_landing_spots_and_speed.items():
+        for (return_y_pos, return_x_velocity, _), centre_hitting_pos in ball_return_landing_spots_and_speed.items():
             sum_x_velocity += return_x_velocity
             sum_velocity_and_position_product += return_x_velocity * return_y_pos
         if sum_x_velocity == 0:
@@ -116,7 +158,9 @@ def pong_ai(paddle_frect, other_paddle_frect, ball_frect, table_size):
             average_interception_point = sum_velocity_and_position_product / sum_x_velocity
         if paddle_centre_y < average_interception_point:
             return "down"
-        return "up"
+        if paddle_centre_y > average_interception_point:
+            return "up"
+        return
 
 
 def calculate_landing_spot(current_centre_x, current_centre_y, destination_x, x_velocity, y_velocity, table_height, ball_diameter):
@@ -172,7 +216,7 @@ def calculate_landing_spot(current_centre_x, current_centre_y, destination_x, x_
     return expected_destination, x_velocity, y_velocity
 
 
-def calculate_ball_target(current_centre_x, current_centre_y, x_velocity, y_velocity, current_paddle_hit_x_pos, opponent_paddle_hit_x, current_paddle_middle_y, paddle_height, table_height, ball_diameter):
+def calculate_ball_target(current_centre_x, current_centre_y, x_velocity, y_velocity, current_paddle_hit_x_pos, opponent_paddle_hit_x, current_paddle_middle_y, paddle_height, table_height, ball_diameter, start_frame_offset=0):
     """
     Calculate: if the ball hits "current_paddle" at current_paddle_hit_x_pos, where will the ball be reflected to "opponent_paddle_hit_x"
     :param current_centre_x: ball's x position
@@ -185,9 +229,11 @@ def calculate_ball_target(current_centre_x, current_centre_y, x_velocity, y_velo
     :param table_height: height of the table
     :param ball_diameter: diameter of the ball
     :param paddle_height: height of the paddle
+    :param start_frame_offset: the offset to add to the range of current paddle's movement (used for predicting future return behaviour), default 0
+
     :return: a dictionary of: 
         {
-            (ball's landing spot after being hit by current_paddle, ball's x-velocity after reflecting): 
+            (ball's landing spot after being hit by current_paddle, ball's x-velocity after reflecting, y-velocity after reflecting): 
                 position for centre of paddle to be at to hit this ball so that the ball will hit opponent_paddle_hit_x
         }
         If impossible to hit the ball, return [middle of game table: current expected landing spot of ball hitting current_paddle]
@@ -201,6 +247,9 @@ def calculate_ball_target(current_centre_x, current_centre_y, x_velocity, y_velo
         frames_until_impact_current_paddle = (current_paddle_hit_x_pos - current_centre_x) / x_velocity
     else:
         frames_until_impact_current_paddle = 10000
+
+    # Add an offset, so the current paddle has more "range" to move. This is used when A want to predict B's return behaviour when ball has not reached A yet
+    frames_until_impact_current_paddle += start_frame_offset
 
     # Find possible positions the paddle can reach
     max_centre_y_reachable = min(table_height - paddle_height/2, current_paddle_middle_y + frames_until_impact_current_paddle)
@@ -218,7 +267,7 @@ def calculate_ball_target(current_centre_x, current_centre_y, x_velocity, y_velo
         # Score wise, set any arbitrary velocity, of 1
         # Just assume that the ball will get returned to the middle of the table with speed 1 if the paddle can somehow reach the ball
         # TODO: Can let it return some special data indicate that "it's impossible to hit the ball"
-        return {(table_height/2, 0): y_position_of_ball_hitting_current_paddle}
+        return {(table_height/2, 0, 0): y_position_of_ball_hitting_current_paddle}
 
     # 4 scenarios: max_reachable_by_paddle > max_paddle_pos_that_can_hit_ball_at_destination, min_reachable_by_paddle < min_paddle_pos_that_can_hit_ball_at_destination.
     #                  Paddle can hit the ball from any way it wants.
@@ -264,7 +313,7 @@ def calculate_ball_target(current_centre_x, current_centre_y, x_velocity, y_velo
         if return_velocity[0] * (2 * paddle_facing - 1) < 1:
             # Prevent resetting ball gives a velocity of 0, because in game engine, this calculation can be done BETWEEN steps and ensure velocity isn't too small
             if return_velocity[0] ** 2 + return_velocity[1] ** 2 - 1 < 0 or return_velocity[1] == 0:
-                return {(table_height/2, 0): y_position_of_ball_hitting_current_paddle}  # return generic stuff if necessary
+                return {(table_height/2, 0, 0): y_position_of_ball_hitting_current_paddle}  # return generic stuff if necessary
             return_velocity[1] = (return_velocity[1] / abs(return_velocity[1])) * math.sqrt(
                 return_velocity[0] ** 2 + return_velocity[1] ** 2 - 1)
             return_velocity[0] = (2 * paddle_facing - 1)
@@ -274,12 +323,12 @@ def calculate_ball_target(current_centre_x, current_centre_y, x_velocity, y_velo
         # Do not record the hit if return velocity is in the wrong direction
         if return_velocity[0] * (opponent_paddle_hit_x - current_paddle_hit_x_pos) < 0:
             continue
-        return_landing_spots[(return_landing_location, return_velocity[0])] = angles_of_impact[theta]
+        return_landing_spots[(return_landing_location, return_velocity[0], return_velocity[1])] = angles_of_impact[theta]
     if return_landing_spots:
         return return_landing_spots
     
     # There are no possible locations, some bug occurred, return generic stuff
-    return {(table_height/2, 0): y_position_of_ball_hitting_current_paddle}  # return generic stuff if necessary
+    return {(table_height/2, 0, 0): y_position_of_ball_hitting_current_paddle}  # return generic stuff if necessary
 
 def paddle_hit_ball_min_distance(frames_until_impact, ball_destination_y, paddle_middle_y, paddle_height, table_height, ball_diameter):
     """
